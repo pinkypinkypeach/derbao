@@ -1,0 +1,1574 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>匿名反馈箱系统</title>
+    <!-- 引入Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 引入Font Awesome -->
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css">
+  
+  <!-- 新增：引入百度IP定位插件（returnCitySN） -->
+  <script src="https://pv.sohu.com/cityjson?ie=utf-8"></script>
+    <!-- 配置Tailwind自定义颜色和字体 -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#165DFF',
+                        secondary: '#36BFFA',
+                        success: '#00B42A',
+                        danger: '#F53F3F',
+                        warning: '#FF7D00',
+                        dark: '#1D2129',
+                        light: '#F2F3F5'
+                    },
+                    fontFamily: {
+                        inter: ['Inter', 'system-ui', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+            .card-shadow {
+                box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            }
+            .btn-hover {
+                transition: all 0.3s ease;
+            }
+            .btn-hover:hover {
+                transform: translateY(-2px);
+            }
+            .input-focus {
+                transition: all 0.2s ease;
+            }
+            .input-focus:focus {
+                box-shadow: 0 0 0 3px rgba(22, 93, 255, 0.2);
+            }
+        }
+    </style>
+</head>
+<body class="font-inter bg-gray-50 text-dark min-h-screen">
+    <!-- 页面容器 -->
+    <div class="container mx-auto px-4 py-8 max-w-6xl">
+        <!-- 系统入口页 -->
+        <div id="system-entry" class="page active">
+            <div class="flex flex-col items-center justify-center min-h-[70vh]">
+                <div class="w-full max-w-2xl text-center mb-10">
+                    <div class="w-20 h-20 bg-primary rounded-full flex items-center justify-center mx-auto mb-6">
+                        <i class="fa fa-file-text-o text-white text-3xl"></i>
+                    </div>
+                    <h1 class="text-[clamp(2rem,5vw,3rem)] font-bold text-dark mb-4">匿名反馈箱系统</h1>
+                    <p class="text-gray-500 text-lg max-w-lg mx-auto">
+                        高效便捷的表单提交与管理平台，支持人脸识别验证和智能回复
+                    </p>
+                </div>
+                
+                <div class="w-full max-w-md grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <button id="go-to-user-face" class="flex flex-col items-center justify-center bg-white border border-gray-300 rounded-xl p-6 card-shadow btn-hover">
+                        <div class="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mb-4">
+                            <i class="fa fa-user text-primary text-xl"></i>
+                        </div>
+                        <h3 class="font-medium text-lg">用户入口</h3>
+                        <p class="text-gray-500 text-sm mt-1">提交表单或查看回复</p>
+                    </button>
+                    
+                    <button id="go-to-admin-face" class="flex flex-col items-center justify-center bg-white border border-gray-300 rounded-xl p-6 card-shadow btn-hover">
+                        <div class="w-12 h-12 bg-secondary/10 rounded-full flex items-center justify-center mb-4">
+                            <i class="fa fa-user-secret text-secondary text-xl"></i>
+                        </div>
+                        <h3 class="font-medium text-lg">管理员入口</h3>
+                        <p class="text-gray-500 text-sm mt-1">管理表单和回复用户</p>
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 用户人脸识别验证UI -->
+        <div id="user-face-verification" class="page hidden">
+            <div class="flex flex-col items-center justify-center min-h-[70vh]">
+                <div class="w-full max-w-md">
+                    <div class="text-center mb-8">
+                        <div class="w-16 h-16 bg-primary rounded-full flex items-center justify-center mx-auto mb-4">
+                            <i class="fa fa-user text-white text-2xl"></i>
+                        </div>
+                        <h2 class="text-[clamp(1.5rem,3vw,2rem)] font-bold text-dark mb-2">用户人脸识别验证</h2>
+                        <p class="text-gray-500">请将面部对准摄像头完成验证</p>
+                    </div>
+                    
+                    <div class="bg-white rounded-xl p-6 card-shadow">
+                        <!-- 摄像头容器 -->
+                        <div class="relative rounded-lg overflow-hidden bg-gray-100 aspect-video mb-6">
+                            <video id="user-video" class="w-full h-full object-cover hidden"></video>
+                            <canvas id="user-canvas" class="absolute top-0 left-0 w-full h-full hidden"></canvas>
+                            <div id="user-camera-placeholder" class="w-full h-full flex items-center justify-center bg-gray-200">
+                                <div class="text-center text-gray-500">
+                                    <i class="fa fa-camera text-4xl mb-2"></i>
+                                    <p>点击“开始验证”启用摄像头</p>
+                                </div>
+                            </div>
+                            <!-- 人脸框 -->
+                            <div class="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 w-3/5 h-3/5 border-2 border-primary rounded-full flex items-center justify-center">
+                                <div class="w-4 h-4 bg-primary rounded-full animate-pulse"></div>
+                            </div>
+                            <!-- 加载状态 -->
+                            <div id="user-face-loading" class="absolute inset-0 bg-black/50 flex items-center justify-center hidden">
+                                <div class="text-center">
+                                    <div class="w-12 h-12 border-4 border-white/30 border-t-white rounded-full animate-spin mx-auto mb-3"></div>
+                                    <p class="text-white">正在验证...</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="space-y-4">
+                            <button id="start-user-face-detection" class="w-full bg-primary text-white py-3 px-6 rounded-lg font-medium btn-hover">
+                                <i class="fa fa-play mr-2"></i> 开始人脸识别
+                            </button>
+                            
+                            <button id="back-user-to-entry" class="w-full border border-gray-300 text-gray-700 py-3 px-6 rounded-lg font-medium btn-hover">
+                                <i class="fa fa-arrow-left mr-2"></i> 返回首页
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 用户操作选择UI（提交表单/查看回复） -->
+        <div id="user-operation-select" class="page hidden">
+            <div class="mb-8">
+                <div class="flex items-center">
+                    <button id="back-to-system-entry" class="text-gray-500 hover:text-primary transition-colors mr-2">
+                        <i class="fa fa-arrow-left"></i> 返回系统首页
+                    </button>
+                </div>
+            </div>
+            <div class="flex flex-col items-center justify-center min-h-[60vh]">
+                <div class="w-full max-w-2xl text-center mb-10">
+                    <div class="w-16 h-16 bg-primary rounded-full flex items-center justify-center mx-auto mb-4">
+                        <i class="fa fa-hand-pointer-o text-white text-2xl"></i>
+                    </div>
+                    <h2 class="text-[clamp(1.5rem,3vw,2rem)] font-bold text-dark mb-2">请选择操作</h2>
+                    <p class="text-gray-500">完成人脸识别后，您可以进行以下操作</p>
+                </div>
+                
+                <div class="w-full max-w-md grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <button id="go-to-form-filling" class="flex flex-col items-center justify-center bg-white border border-gray-300 rounded-xl p-8 card-shadow btn-hover">
+                        <div class="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mb-5">
+                            <i class="fa fa-pencil-square-o text-primary text-2xl"></i>
+                        </div>
+                        <h3 class="font-medium text-xl">提交表单</h3>
+                        <p class="text-gray-500 text-sm mt-2 text-center">填写并提交您的需求或问题</p>
+                    </button>
+                    
+                    <button id="go-to-reply-list" class="flex flex-col items-center justify-center bg-white border border-gray-300 rounded-xl p-8 card-shadow btn-hover">
+                        <div class="w-16 h-16 bg-secondary/10 rounded-full flex items-center justify-center mb-5">
+                            <i class="fa fa-comments-o text-secondary text-2xl"></i>
+                        </div>
+                        <h3 class="font-medium text-xl">查看回复</h3>
+                        <p class="text-gray-500 text-sm mt-2 text-center">查看管理员对您提交表单的回复</p>
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 表单填写UI -->
+        <div id="form-filling" class="page hidden">
+            <div class="mb-8">
+                <div class="flex items-center">
+                    <button id="back-to-operation" class="text-gray-500 hover:text-primary transition-colors mr-2">
+                        <i class="fa fa-arrow-left"></i> 返回用户选择
+                    </button>
+                    <h1 class="text-[clamp(1.5rem,3vw,2.5rem)] font-bold">提交表单</h1>
+                    <p class="text-gray-500 mt-1">请填写以下信息，我们将尽快回复您</p>
+                </div>
+            </div>
+            
+            <div class="bg-white rounded-xl p-6 md:p-8 card-shadow">
+                <form id="submission-form" class="space-y-6">
+                    <div>
+                        <label for="form-title" class="block text-sm font-medium text-gray-700 mb-1">表单标题 <span class="text-danger">*</span></label>
+                        <input type="text" id="form-title" name="title" required
+                            class="w-full px-4 py-3 border border-gray-300 rounded-lg input-focus outline-none"
+                            placeholder="请输入表单标题">
+                    </div>
+                    
+                    <div>
+                        <label for="form-content" class="block text-sm font-medium text-gray-700 mb-1">表单内容 <span class="text-danger">*</span></label>
+                        <textarea id="form-content" name="content" rows="6" required
+                            class="w-full px-4 py-3 border border-gray-300 rounded-lg input-focus outline-none resize-none"
+                            placeholder="请详细描述您的问题或需求"></textarea>
+                    </div>
+                    
+                    <div>
+                        <label for="form-category" class="block text-sm font-medium text-gray-700 mb-1">问题分类</label>
+                        <select id="form-category" name="category"
+                            class="w-full px-4 py-3 border border-gray-300 rounded-lg input-focus outline-none bg-white">
+                            <option value="">请选择分类</option>
+                            <option value="technical">技术问题</option>
+                            <option value="service">服务咨询</option>
+                            <option value="complaint">投诉建议</option>
+                            <option value="other">其他问题</option>
+                        </select>
+                    </div>
+                    
+                    <div class="pt-4 flex justify-end">
+                        <button type="button" id="cancel-form" class="px-6 py-3 border border-gray-300 rounded-lg text-gray-700 font-medium mr-3 btn-hover">
+                            取消
+                        </button>
+                        <button type="submit" class="px-6 py-3 bg-primary text-white rounded-lg font-medium btn-hover">
+                            提交表单
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <!-- 回复列表UI -->
+        <div id="reply-list" class="page hidden">
+            <div class="mb-8">
+                <div class="flex items-center">
+                    <button id="back-to-operation-from-reply" class="text-gray-500 hover:text-primary transition-colors mr-2">
+                        <i class="fa fa-arrow-left"></i> 返回用户选择
+                    </button>
+                    <h1 class="text-[clamp(1.5rem,3vw,2.5rem)] font-bold">我的回复列表</h1>
+                    <p class="text-gray-500 mt-1">查看管理员对您提交表单的回复内容</p>
+                </div>
+            </div>
+            
+            <div class="bg-white rounded-xl card-shadow overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th scope="col" class="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    表单标题
+                                </th>
+                                <th scope="col" class="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    提交时间
+                                </th>
+                                <th scope="col" class="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    回复状态
+                                </th>
+                                <th scope="col" class="px-6 py-4 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    操作
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200" id="replies-table-body">
+                            <!-- 动态加载数据 -->
+                        </tbody>
+                    </table>
+                </div>
+                
+                <!-- 分页 -->
+                <div class="px-6 py-4 bg-gray-50 border-t border-gray-200 flex items-center justify-between">
+                    <div class="text-sm text-gray-700" id="reply-page-info">
+                        显示 <span class="font-medium">0</span> 到 <span class="font-medium">0</span> 条，共 <span class="font-medium">0</span> 条记录
+                    </div>
+                    <div class="flex space-x-2">
+                        <button id="reply-prev-page" class="px-3 py-1 border border-gray-300 rounded text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                            <i class="fa fa-angle-left"></i>
+                        </button>
+                        <button id="reply-next-page" class="px-3 py-1 border border-gray-300 rounded text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                            <i class="fa fa-angle-right"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 回复详情UI -->
+        <div id="reply-detail" class="page hidden">
+            <div class="mb-8">
+                <div class="flex items-center">
+                    <button id="back-to-reply-list" class="text-gray-500 hover:text-primary transition-colors mr-2">
+                        <i class="fa fa-arrow-left"></i>
+                    </button>
+                    <h1 class="text-[clamp(1.5rem,3vw,2.5rem)] font-bold">回复详情</h1>
+                    <p class="text-gray-500 mt-1">查看管理员对您提交表单的回复</p>
+                </div>
+            </div>
+            
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div class="lg:col-span-2">
+                    <!-- 表单信息 -->
+                    <div class="bg-white rounded-xl p-6 md:p-8 card-shadow mb-6">
+                        <div class="flex justify-between items-start mb-6">
+                            <div>
+                                <h2 id="reply-detail-title" class="text-xl font-bold mb-2">账号无法登录问题</h2>
+                                <div class="flex items-center text-sm text-gray-500">
+                                    <span class="flex items-center">
+                                        <i class="fa fa-clock-o mr-1"></i>
+                                        <span id="reply-detail-time">2023-05-15 09:23</span>
+                                    </span>
+                                </div>
+                            </div>
+                            <span id="reply-detail-status" class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                                已回复
+                            </span>
+                        </div>
+                        
+                        <div class="border-t border-gray-100 pt-6 mb-6">
+                            <h3 class="text-sm font-medium text-gray-500 mb-3">您的表单内容</h3>
+                            <div id="reply-detail-content" class="prose max-w-none text-gray-700 leading-relaxed">
+                                您好，我的账号从昨天开始无法登录系统，提示"密码错误"，但我确定密码是正确的。我尝试了找回密码功能，但没有收到重置邮件。请帮忙解决这个问题，非常感谢！
+                            </div>
+                        </div>
+                        
+                        <!-- 管理员回复 -->
+                        <div id="admin-reply-container" class="border-t border-gray-100 pt-6 bg-gray-50 p-5 rounded-lg">
+                            <div class="flex items-center mb-4">
+                                <div class="w-10 h-10 bg-secondary/10 rounded-full flex items-center justify-center mr-3">
+                                    <i class="fa fa-user-secret text-secondary"></i>
+                                </div>
+                                <div>
+                                    <h3 class="font-medium">管理员回复</h3>
+                                    <p class="text-sm text-gray-500" id="admin-reply-time">2023-05-15 14:30</p>
+                                </div>
+                            </div>
+                            <div id="admin-reply-content" class="prose max-w-none text-gray-700 leading-relaxed">
+                                您好，关于您反馈的登录问题，我们已为您重置了密码。新密码将通过系统内部消息发送给您，请登录后及时修改密码。如果还有其他问题，请随时联系我们。感谢您的反馈！
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 表单信息侧边栏 -->
+                <div class="lg:col-span-1">
+                    <div class="bg-white rounded-xl p-6 card-shadow sticky top-4">
+                        <h3 class="text-lg font-bold mb-4">表单信息</h3>
+                        
+                        <div class="space-y-4">
+                            <div>
+                                <p class="text-sm text-gray-500">表单ID</p>
+                                <p class="font-medium" id="form-detail-id">#FORM-20230515-001</p>
+                            </div>
+                            
+                            <div>
+                                <p class="text-sm text-gray-500">分类</p>
+                                <p class="font-medium" id="form-detail-category">技术问题</p>
+                            </div>
+                            
+                            <div>
+                                <p class="text-sm text-gray-500">提交状态</p>
+                                <p class="font-medium text-success" id="form-detail-status">已回复</p>
+                            </div>
+                            
+                            <div>
+                                <p class="text-sm text-gray-500">回复时间</p>
+                                <p class="font-medium" id="form-detail-reply-time">2023-05-15 14:30</p>
+                            </div>
+                        </div>
+                        
+                        <div class="mt-6 pt-6 border-t border-gray-100">
+                            <button id="back-from-reply-detail" class="w-full flex items-center justify-center bg-primary text-white py-3 px-6 rounded-lg font-medium btn-hover">
+                                <i class="fa fa-arrow-left mr-2"></i> 返回列表
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 管理员人脸识别登录UI -->
+        <div id="admin-face-login" class="page hidden">
+            <div class="flex flex-col items-center justify-center min-h-[70vh]">
+                <div class="w-full max-w-md">
+                    <div class="text-center mb-8">
+                        <div class="w-16 h-16 bg-secondary rounded-full flex items-center justify-center mx-auto mb-4">
+                            <i class="fa fa-user-secret text-white text-2xl"></i>
+                        </div>
+                        <h2 class="text-[clamp(1.5rem,3vw,2rem)] font-bold text-dark mb-2">管理员人脸识别登录</h2>
+                        <p class="text-gray-500">请将面部对准摄像头进行身份验证</p>
+                    </div>
+                    
+                    <div class="bg-white rounded-xl p-6 card-shadow">
+                        <!-- 摄像头容器 -->
+                        <div class="relative rounded-lg overflow-hidden bg-gray-100 aspect-video mb-6">
+                            <video id="admin-video" class="w-full h-full object-cover hidden"></video>
+                            <canvas id="admin-canvas" class="absolute top-0 left-0 w-full h-full hidden"></canvas>
+                            <div id="admin-camera-placeholder" class="w-full h-full flex items-center justify-center bg-gray-200">
+                                <div class="text-center text-gray-500">
+                                    <i class="fa fa-camera text-4xl mb-2"></i>
+                                    <p>点击“开始验证”启用摄像头</p>
+                                </div>
+                            </div>
+                            <!-- 人脸框 -->
+                            <div class="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 w-3/5 h-3/5 border-2 border-secondary rounded-full flex items-center justify-center">
+                                <div class="w-4 h-4 bg-secondary rounded-full animate-pulse"></div>
+                            </div>
+                            <!-- 加载状态 -->
+                            <div id="admin-face-loading" class="absolute inset-0 bg-black/50 flex items-center justify-center hidden">
+                                <div class="text-center">
+                                    <div class="w-12 h-12 border-4 border-white/30 border-t-white rounded-full animate-spin mx-auto mb-3"></div>
+                                    <p class="text-white">正在验证身份...</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="space-y-4">
+                            <button id="start-admin-face-detection" class="w-full bg-secondary text-white py-3 px-6 rounded-lg font-medium btn-hover">
+                                <i class="fa fa-play mr-2"></i> 开始人脸识别
+                            </button>
+                            
+                            <button id="back-admin-to-entry" class="w-full border border-gray-300 text-gray-700 py-3 px-6 rounded-lg font-medium btn-hover">
+                                <i class="fa fa-arrow-left mr-2"></i> 返回首页
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 管理员表单列表UI -->
+        <div id="admin-form-list" class="page hidden">
+            <div class="mb-8">
+                <div class="flex flex-col md:flex-row md:items-center md:justify-between">
+                    <div>
+                        <h1 class="text-[clamp(1.5rem,3vw,2.5rem)] font-bold">表单管理列表</h1>
+                        <p class="text-gray-500 mt-1">管理所有用户提交的表单并进行回复</p>
+                    </div>
+                    
+                    <div class="mt-4 md:mt-0 flex items-center">
+                        <div class="relative">
+                            <input type="text" id="admin-form-search" 
+                                class="pl-10 pr-4 py-2 border border-gray-300 rounded-lg input-focus outline-none w-full md:w-64"
+                                placeholder="搜索表单标题...">
+                            <i class="fa fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                        </div>
+                        
+                        <button id="admin-logout-btn" class="ml-4 text-gray-600 hover:text-danger transition-colors">
+                            <i class="fa fa-sign-out mr-1"></i> 退出登录
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="bg-white rounded-xl card-shadow overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th scope="col" class="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    表单标题
+                                </th>
+                                <th scope="col" class="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    提交时间
+                                </th>
+                                <th scope="col" class="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    状态
+                                </th>
+                                <th scope="col" class="px-6 py-4 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    操作
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200" id="admin-forms-table-body">
+                            <!-- 动态加载数据 -->
+                        </tbody>
+                    </table>
+                </div>
+                
+                <!-- 分页 -->
+                <div class="px-6 py-4 bg-gray-50 border-t border-gray-200 flex items-center justify-between">
+                    <div class="text-sm text-gray-700" id="admin-page-info">
+                        显示 <span class="font-medium">0</span> 到 <span class="font-medium">0</span> 条，共 <span class="font-medium">0</span> 条记录
+                    </div>
+                    <div class="flex space-x-2">
+                        <button id="admin-prev-page" class="px-3 py-1 border border-gray-300 rounded text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                            <i class="fa fa-angle-left"></i>
+                        </button>
+                        <button id="admin-next-page" class="px-3 py-1 border border-gray-300 rounded text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                            <i class="fa fa-angle-right"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 管理员表单详情及回复UI -->
+        <div id="admin-form-detail" class="page hidden">
+            <div class="mb-8">
+                <div class="flex items-center">
+                    <button id="back-to-admin-form-list" class="text-gray-500 hover:text-primary transition-colors mr-2">
+                        <i class="fa fa-arrow-left"></i>
+                    </button>
+                    <h1 class="text-[clamp(1.5rem,3vw,2.5rem)] font-bold">表单详情与回复</h1>
+                    <p class="text-gray-500 mt-1">查看表单内容并进行回复</p>
+                </div>
+            </div>
+            
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- 表单信息 -->
+                <div class="lg:col-span-2">
+                    <div class="bg-white rounded-xl p-6 md:p-8 card-shadow mb-6">
+                        <div class="flex justify-between items-start mb-6">
+                            <div>
+                                <h2 id="admin-detail-title" class="text-xl font-bold mb-2">功能建议</h2>
+                                <div class="flex items-center text-sm text-gray-500">
+                                    <span class="flex items-center">
+                                        <i class="fa fa-clock-o mr-1"></i>
+                                        <span id="admin-detail-time">2023-05-14 16:45</span>
+                                    </span>
+                                </div>
+                            </div>
+                            <span id="admin-detail-status" class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">
+                                未回复
+                            </span>
+                        </div>
+                        
+                        <div class="border-t border-gray-100 pt-6">
+                            <h3 class="text-sm font-medium text-gray-500 mb-3">表单内容</h3>
+                            <div id="admin-detail-content" class="prose max-w-none text-gray-700 leading-relaxed">
+                                您好，我觉得系统可以增加一个数据导出功能，方便我们将表单数据导出为Excel格式进行分析。另外，希望能增加表单模板功能，不用每次都重新创建相似的表单。这些功能如果能实现，会大大提高我们的工作效率，谢谢！
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 回复区域 -->
+                    <div class="bg-white rounded-xl p-6 md:p-8 card-shadow">
+                        <h3 class="text-lg font-bold mb-4">回复内容</h3>
+                        <form id="admin-reply-form">
+                            <div>
+                                <label for="admin-reply-content-input" class="block text-sm font-medium text-gray-700 mb-1">回复内容</label>
+                                <textarea id="admin-reply-content-input" name="reply" rows="6"
+                                    class="w-full px-4 py-3 border border-gray-300 rounded-lg input-focus outline-none resize-none"
+                                    placeholder="请输入回复内容..."></textarea>
+                            </div>
+                            
+                            <div class="mt-4">
+                                <button type="button" id="regenerate-reply-btn" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg font-medium btn-hover mr-3">
+                                    <i class="fa fa-refresh mr-2"></i> 智能生成回复
+                                </button>
+                            </div>
+                            
+                            <div class="mt-6 flex justify-end">
+                                <button type="button" id="cancel-admin-reply" class="px-6 py-3 border border-gray-300 rounded-lg text-gray-700 font-medium mr-3 btn-hover">
+                                    取消
+                                </button>
+                                <button type="submit" class="px-6 py-3 bg-primary text-white rounded-lg font-medium btn-hover">
+                                    <i class="fa fa-paper-plane mr-2"></i> 发送回复
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+                
+                <!-- 操作侧边栏 -->
+                <div class="lg:col-span-1">
+                    <div class="bg-white rounded-xl p-6 card-shadow sticky top-4">
+                        <h3 class="text-lg font-bold mb-4">操作</h3>
+                        
+                        <div class="space-y-3">
+                            <button id="delete-this-admin-form" class="w-full flex items-center justify-center bg-danger text-white py-3 px-6 rounded-lg font-medium btn-hover">
+                                <i class="fa fa-trash mr-2"></i> 删除表单
+                            </button>
+                            
+                            <button id="download-this-form" class="w-full flex items-center justify-center border border-gray-300 text-gray-700 py-3 px-6 rounded-lg font-medium btn-hover">
+                                <i class="fa fa-download mr-2"></i> 下载表单
+                            </button>
+                        </div>
+                        
+                        <div class="mt-6 pt-6 border-t border-gray-100">
+                            <h4 class="font-medium text-gray-700 mb-3">表单信息</h4>
+                            
+                            <div class="space-y-3">
+                                <div>
+                                    <p class="text-sm text-gray-500">表单ID</p>
+                                    <p class="font-medium" id="admin-form-id">#FORM-20230514-002</p>
+                                </div>
+                                
+                                <div>
+                                    <p class="text-sm text-gray-500">分类</p>
+                                    <p class="font-medium" id="admin-form-category">功能建议</p>
+                                </div>
+                                
+                                <div>
+                                    <p class="text-sm text-gray-500">IP地址</p>
+                                    <p class="font-medium" id="admin-form-ip">192.168.1.100</p>
+                                </div>
+                                
+                                <div>
+                                    <p class="text-sm text-gray-500">浏览器</p>
+                                    <p class="font-medium" id="admin-form-browser">Chrome 112.0.5615.138</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 通知提示框 -->
+    <div id="notification" class="fixed top-4 right-4 bg-white rounded-lg shadow-lg p-4 max-w-sm transform translate-x-full transition-transform duration-300 flex items-start z-50">
+        <div id="notification-icon" class="mr-3 text-success text-xl">
+            <i class="fa fa-check-circle"></i>
+        </div>
+        <div class="flex-1">
+            <h3 id="notification-title" class="font-medium text-gray-900">操作成功</h3>
+            <p id="notification-message" class="text-sm text-gray-500 mt-1">您的操作已成功完成</p>
+        </div>
+        <button id="close-notification" class="text-gray-400 hover:text-gray-600 ml-2">
+            <i class="fa fa-times"></i>
+        </button>
+    </div>
+    
+    <!-- 确认对话框 -->
+    <div id="confirm-dialog" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-xl p-6 max-w-md w-full mx-4 transform transition-all duration-300 scale-95 opacity-0" id="dialog-content">
+            <div class="text-center mb-4">
+                <div class="w-16 h-16 bg-warning/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <i class="fa fa-exclamation-triangle text-warning text-2xl"></i>
+                </div>
+                <h3 id="dialog-title" class="text-xl font-bold text-gray-900">确认删除</h3>
+                <p id="dialog-message" class="text-gray-500 mt-2">您确定要删除这个表单吗？此操作不可撤销。</p>
+            </div>
+            
+            <div class="flex space-x-3 mt-6">
+                <button id="dialog-cancel" class="flex-1 px-4 py-3 border border-gray-300 rounded-lg text-gray-700 font-medium btn-hover">
+                    取消
+                </button>
+                <button id="dialog-confirm" class="flex-1 px-4 py-3 bg-danger text-white rounded-lg font-medium btn-hover">
+                    确认删除
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // 全局变量
+        let currentPage = 'system-entry';
+        let currentUserId = null; // 当前登录用户ID（系统内用户ID）
+        let currentFormId = null; // 当前操作的表单ID
+        const API_BASE_URL = 'http://localhost:3000/api'; // 后端API基础地址
+
+        // DOM元素加载完成后执行
+        document.addEventListener('DOMContentLoaded', function() {
+            // 页面切换函数
+            function showPage(pageId) {
+                // 隐藏所有页面
+                document.querySelectorAll('.page').forEach(page => {
+                    page.classList.add('hidden');
+                    page.classList.remove('active');
+                });
+
+                // 显示目标页面
+                const targetPage = document.getElementById(pageId);
+                targetPage.classList.remove('hidden');
+                targetPage.classList.add('active');
+
+                // 更新当前页面ID
+                currentPage = pageId;
+
+                // 页面加载逻辑
+                if (pageId === 'reply-list' && currentUserId) {
+                    loadUserFormList(); // 加载用户表单列表
+                } else if (pageId === 'admin-form-list') {
+                    loadAdminFormList(); // 加载管理员表单列表
+                }
+            }
+
+            // 显示通知
+            function showNotification(title, message, type = 'success') {
+                const notification = document.getElementById('notification');
+                const notificationTitle = document.getElementById('notification-title');
+                const notificationMessage = document.getElementById('notification-message');
+                const notificationIcon = document.getElementById('notification-icon');
+
+                // 设置通知内容
+                notificationTitle.textContent = title;
+                notificationMessage.textContent = message;
+
+                // 设置图标
+                notificationIcon.className = '';
+                if (type === 'success') {
+                    notificationIcon.className = 'mr-3 text-success text-xl';
+                    notificationIcon.innerHTML = '<i class="fa fa-check-circle"></i>';
+                } else if (type === 'error') {
+                    notificationIcon.className = 'mr-3 text-danger text-xl';
+                    notificationIcon.innerHTML = '<i class="fa fa-exclamation-circle"></i>';
+                } else if (type === 'warning') {
+                    notificationIcon.className = 'mr-3 text-warning text-xl';
+                    notificationIcon.innerHTML = '<i class="fa fa-exclamation-triangle"></i>';
+                } else if (type === 'info') {
+                    notificationIcon.className = 'mr-3 text-primary text-xl';
+                    notificationIcon.innerHTML = '<i class="fa fa-info-circle"></i>';
+                }
+
+                // 显示通知
+                notification.style.transform = 'translateX(0)';
+
+                // 3秒后自动关闭
+                setTimeout(() => {
+                    notification.style.transform = 'translateX(calc(100% + 20px))';
+                }, 3000);
+            }
+
+            // 关闭通知
+            document.getElementById('close-notification').addEventListener('click', function() {
+                document.getElementById('notification').style.transform = 'translateX(calc(100% + 20px))';
+            });
+
+            // 显示确认对话框
+            function showConfirmDialog(title, message, confirmCallback) {
+                const dialog = document.getElementById('confirm-dialog');
+                const dialogContent = document.getElementById('dialog-content');
+                const dialogTitle = document.getElementById('dialog-title');
+                const dialogMessage = document.getElementById('dialog-message');
+
+                // 设置对话框内容
+                dialogTitle.textContent = title;
+                dialogMessage.textContent = message;
+
+                // 显示对话框
+                dialog.classList.remove('hidden');
+                setTimeout(() => {
+                    dialogContent.classList.remove('scale-95', 'opacity-0');
+                    dialogContent.classList.add('scale-100', 'opacity-100');
+                }, 10);
+
+                // 确认按钮事件
+                const confirmBtn = document.getElementById('dialog-confirm');
+                confirmBtn.onclick = function() {
+                    hideConfirmDialog();
+                    if (confirmCallback && typeof confirmCallback === 'function') {
+                        confirmCallback();
+                    }
+                };
+
+                // 取消按钮事件
+                document.getElementById('dialog-cancel').onclick = hideConfirmDialog;
+            }
+
+            // 隐藏确认对话框
+            function hideConfirmDialog() {
+                const dialog = document.getElementById('confirm-dialog');
+                const dialogContent = document.getElementById('dialog-content');
+
+                dialogContent.classList.remove('scale-100', 'opacity-100');
+                dialogContent.classList.add('scale-95', 'opacity-0');
+
+                setTimeout(() => {
+                    dialog.classList.add('hidden');
+                }, 300);
+            }
+
+            /**
+             * 人脸识别验证核心函数（调用百度人脸搜索V3接口）
+             * @param {boolean} isAdmin - 是否为管理员验证
+             */
+            async function faceVerification(isAdmin) {
+                const videoElem = document.getElementById(isAdmin ? 'admin-video' : 'user-video');
+                const canvasElem = document.getElementById(isAdmin ? 'admin-canvas' : 'user-canvas');
+                const cameraPlaceholder = document.getElementById(isAdmin ? 'admin-camera-placeholder' : 'user-camera-placeholder');
+                const loadingElem = document.getElementById(isAdmin ? 'admin-face-loading' : 'user-face-loading');
+                const ctx = canvasElem.getContext('2d');
+
+                try {
+                    // 1. 启用摄像头
+                    cameraPlaceholder.classList.add('hidden');
+                    videoElem.classList.remove('hidden');
+                    canvasElem.classList.remove('hidden');
+                    
+                    const stream = await navigator.mediaDevices.getUserMedia({ 
+                        video: { facingMode: 'user' } // 优先使用前置摄像头
+                    });
+                    videoElem.srcObject = stream;
+                    
+                    // 2. 等待视频加载完成后捕获帧
+                    await new Promise(resolve => {
+                        videoElem.onloadedmetadata = resolve;
+                    });
+                    videoElem.play();
+
+                    // 3. 捕获当前帧并转换为Base64
+                    ctx.drawImage(videoElem, 0, 0, canvasElem.width, canvasElem.height);
+                    const imageBase64 = canvasElem.toDataURL('image/jpeg').split(',')[1]; // 去除Base64前缀
+
+                    // 4. 停止摄像头
+                    stream.getTracks().forEach(track => track.stop());
+                    videoElem.classList.add('hidden');
+                    canvasElem.classList.add('hidden');
+                    cameraPlaceholder.classList.remove('hidden');
+
+                    // 5. 显示加载状态
+                    loadingElem.classList.remove('hidden');
+
+                    // 6. 调用后端人脸识别接口（最终调用百度人脸搜索V3接口）
+                    const response = await fetch(`${API_BASE_URL}/face/verify`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            imageBase64,
+                            userType: isAdmin ? 'admin' : 'user'
+                        })
+                    });
+
+                    const result = await response.json();
+                    loadingElem.classList.add('hidden');
+
+                    if (!result.success) {
+                        showNotification('验证失败', result.message || '人脸识别未通过', 'error');
+                        return false;
+                    }
+
+                    // 7. 验证成功，存储当前用户ID
+                    currentUserId = result.userId;
+                    showNotification('验证成功', isAdmin ? '管理员身份验证通过' : '用户身份验证通过', 'success');
+                    return true;
+                } catch (error) {
+                    loadingElem.classList.add('hidden');
+                    showNotification('验证异常', error.message || '人脸识别过程出错', 'error');
+                    return false;
+                }
+            }
+
+            // 用户人脸识别验证
+            document.getElementById('start-user-face-detection').addEventListener('click', async function() {
+                const success = await faceVerification(false);
+                if (success) {
+                    setTimeout(() => showPage('user-operation-select'), 1500);
+                }
+            });
+
+            // 管理员人脸识别验证
+            document.getElementById('start-admin-face-detection').addEventListener('click', async function() {
+                const success = await faceVerification(true);
+                if (success) {
+                    setTimeout(() => showPage('admin-form-list'), 1500);
+                }
+            });
+
+            /**
+             * 加载用户表单列表（调用后端接口）
+             */
+            async function loadUserFormList() {
+                const tableBody = document.getElementById('replies-table-body');
+                const pageInfoElem = document.getElementById('reply-page-info');
+
+                try {
+                    const response = await fetch(`${API_BASE_URL}/forms/user/${currentUserId}`);
+                    const result = await response.json();
+
+                    if (!result.success) {
+                        tableBody.innerHTML = '<tr><td colspan="4" class="text-center py-8 text-gray-500">加载失败：' + result.message + '</td></tr>';
+                        return;
+                    }
+
+                    const forms = result.data;
+                    if (forms.length === 0) {
+                        tableBody.innerHTML = '<tr><td colspan="4" class="text-center py-8 text-gray-500">暂无表单数据</td></tr>';
+                        pageInfoElem.innerHTML = '显示 <span class="font-medium">0</span> 到 <span class="font-medium">0</span> 条，共 <span class="font-medium">0</span> 条记录';
+                        return;
+                    }
+
+                    // 渲染表单列表
+                    let html = '';
+                    forms.forEach(form => {
+                        let statusHtml = '';
+                        let actionHtml = '';
+
+                        // 状态显示
+                        if (form.status === '已回复') {
+                            statusHtml = '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">已回复</span>';
+                            actionHtml = `<button class="text-primary hover:text-primary/80 view-reply" data-id="${form.id}">查看回复</button>`;
+                        } else if (form.status === '处理中') {
+                            statusHtml = '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">处理中</span>';
+                            actionHtml = '<button class="text-gray-400 cursor-not-allowed">处理中</button>';
+                        } else {
+                            statusHtml = '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">未回复</span>';
+                            actionHtml = '<button class="text-gray-400 cursor-not-allowed">暂未回复</button>';
+                        }
+
+                        html += `
+                            <tr class="hover:bg-gray-50 transition-colors cursor-pointer reply-row" data-id="${form.id}">
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <div class="text-sm font-medium text-gray-900">${form.title}</div>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <div class="text-sm text-gray-500">${formatDate(form.create_time)}</div>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    ${statusHtml}
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                    ${actionHtml}
+                                </td>
+                            </tr>
+                        `;
+                    });
+
+                    tableBody.innerHTML = html;
+                    pageInfoElem.innerHTML = `显示 <span class="font-medium">1</span> 到 <span class="font-medium">${forms.length}</span> 条，共 <span class="font-medium">${forms.length}</span> 条记录`;
+
+                    // 绑定查看回复事件
+                    document.querySelectorAll('.view-reply').forEach(btn => {
+                        btn.addEventListener('click', function(e) {
+                            e.stopPropagation();
+                            currentFormId = this.getAttribute('data-id');
+                            loadReplyDetail(currentFormId);
+                            showPage('reply-detail');
+                        });
+                    });
+
+                    // 绑定行点击事件
+                    document.querySelectorAll('.reply-row').forEach(row => {
+                        row.addEventListener('click', function() {
+                            const formId = this.getAttribute('data-id');
+                            const status = this.querySelector('td:nth-child(3) span').textContent;
+                            if (status === '已回复') {
+                                currentFormId = formId;
+                                loadReplyDetail(formId);
+                                showPage('reply-detail');
+                            }
+                        });
+                    });
+                } catch (error) {
+                    tableBody.innerHTML = `<tr><td colspan="4" class="text-center py-8 text-gray-500">加载异常：${error.message}</td></tr>`;
+                }
+            }
+
+            /**
+             * 加载回复详情（调用后端接口）
+             */
+            async function loadReplyDetail(formId) {
+                try {
+                    const response = await fetch(`${API_BASE_URL}/forms/user/${currentUserId}`);
+                    const result = await response.json();
+
+                    if (!result.success) {
+                        showNotification('加载失败', result.message, 'error');
+                        return;
+                    }
+
+                    const form = result.data.find(item => item.id == formId);
+                    if (!form) {
+                        showNotification('加载失败', '表单不存在', 'error');
+                        return;
+                    }
+
+                    // 填充表单信息
+                    document.getElementById('reply-detail-title').textContent = form.title;
+                    document.getElementById('reply-detail-time').textContent = formatDate(form.create_time);
+                    document.getElementById('reply-detail-content').textContent = form.content;
+                    
+                    // 状态显示
+                    let statusHtml = '';
+                    let statusText = '';
+                    if (form.status === '已回复') {
+                        statusHtml = '<span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">已回复</span>';
+                        statusText = '已回复';
+                    } else if (form.status === '处理中') {
+                        statusHtml = '<span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">处理中</span>';
+                        statusText = '处理中';
+                    } else {
+                        statusHtml = '<span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">未回复</span>';
+                        statusText = '未回复';
+                    }
+                    document.getElementById('reply-detail-status').outerHTML = statusHtml;
+                    
+                    // 侧边栏信息
+                    document.getElementById('form-detail-id').textContent = `#${form.form_no}`;
+                    document.getElementById('form-detail-category').textContent = getCategoryText(form.category);
+                    document.getElementById('form-detail-status').textContent = statusText;
+                    document.getElementById('form-detail-status').className = statusText === '已回复' ? 'font-medium text-success' : 'font-medium text-gray-700';
+                    
+                    // 回复内容
+                    const replyContainer = document.getElementById('admin-reply-container');
+                    if (form.reply_content) {
+                        document.getElementById('admin-reply-content').textContent = form.reply_content;
+                        document.getElementById('admin-reply-time').textContent = formatDate(form.reply_time);
+                        document.getElementById('form-detail-reply-time').textContent = formatDate(form.reply_time);
+                    } else {
+                        replyContainer.innerHTML = '<div class="text-center py-4 text-gray-500">管理员暂未回复</div>';
+                        document.getElementById('form-detail-reply-time').textContent = '暂无';
+                    }
+                } catch (error) {
+                    showNotification('加载异常', error.message, 'error');
+                }
+            }
+
+            /**
+             * 加载管理员表单列表（调用后端接口）
+             */
+            async function loadAdminFormList() {
+                const tableBody = document.getElementById('admin-forms-table-body');
+                const pageInfoElem = document.getElementById('admin-page-info');
+
+                try {
+                    const response = await fetch(`${API_BASE_URL}/forms/admin`);
+                    const result = await response.json();
+
+                    if (!result.success) {
+                        tableBody.innerHTML = '<tr><td colspan="4" class="text-center py-8 text-gray-500">加载失败：' + result.message + '</td></tr>';
+                        return;
+                    }
+
+                    const forms = result.data;
+                    if (forms.length === 0) {
+                        tableBody.innerHTML = '<tr><td colspan="4" class="text-center py-8 text-gray-500">暂无表单数据</td></tr>';
+                        pageInfoElem.innerHTML = '显示 <span class="font-medium">0</span> 到 <span class="font-medium">0</span> 条，共 <span class="font-medium">0                        </span> 条记录';
+                        return;
+                    }
+
+                    // 渲染管理员表单列表
+                    let html = '';
+                    forms.forEach(form => {
+                        let statusHtml = '';
+                        if(form.status === '已回复') {
+                            statusHtml = '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">已回复</span>';
+                        } else if (form.status === '处理中') {
+                            statusHtml = '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">处理中</span>';
+                        } else {
+                            statusHtml = '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">未回复</span>';
+                        }
+
+                        html += `
+                            <tr class="hover:bg-gray-50 transition-colors cursor-pointer admin-form-row" data-id="${form.id}">
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <div class="text-sm font-medium text-gray-900">${form.title}</div>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <div class="text-sm text-gray-500">${formatDate(form.create_time)}</div>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    ${statusHtml}
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                    <button class="text-primary hover:text-primary/80 mr-3 admin-view-form" data-id="${form.id}">查看</button>
+                                    <button class="text-danger hover:text-danger/80 admin-delete-form" data-id="${form.id}">删除</button>
+                                </td>
+                            </tr>
+                        `;
+                    });
+
+                    tableBody.innerHTML = html;
+                    pageInfoElem.innerHTML = `显示 <span class="font-medium">1</span> 到 <span class="font-medium">${forms.length}</span> 条，共 <span class="font-medium">${forms.length}</span> 条记录`;
+
+                    // 绑定查看表单事件
+                    document.querySelectorAll('.admin-view-form').forEach(btn => {
+                        btn.addEventListener('click', function(e) {
+                            e.stopPropagation();
+                            currentFormId = this.getAttribute('data-id');
+                            loadAdminFormDetail(currentFormId);
+                            showPage('admin-form-detail');
+                        });
+                    });
+
+                    // 绑定删除表单事件
+                    document.querySelectorAll('.admin-delete-form').forEach(btn => {
+                        btn.addEventListener('click', function(e) {
+                            e.stopPropagation();
+                            const formId = this.getAttribute('data-id');
+                            showConfirmDialog('删除表单', '确定要删除此表单吗？此操作不可撤销。', function() {
+                                deleteAdminForm(formId);
+                            });
+                        });
+                    });
+
+                    // 绑定行点击事件
+                    document.querySelectorAll('.admin-form-row').forEach(row => {
+                        row.addEventListener('click', function() {
+                            currentFormId = this.getAttribute('data-id');
+                            loadAdminFormDetail(currentFormId);
+                            showPage('admin-form-detail');
+                        });
+                    });
+                } catch (error) {
+                    tableBody.innerHTML = `<tr><td colspan="4" class="text-center py-8 text-gray-500">加载异常：${error.message}</td></tr>`;
+                }
+            }
+
+            /**
+             * 加载管理员表单详情（含H5视频活体检测前置校验，调用文档中“随机校验码”接口）
+             */
+            async function loadAdminFormDetail(formId) {
+                try {
+                    // 1. 先获取随机校验码（文档中“随机校验码”接口，用于后续活体检测）
+                    const sessionCodeResp = await fetch(`${API_BASE_URL}/face/session-code`);
+                    const sessionCodeResult = await sessionCodeResp.json();
+                    if (!sessionCodeResult.success) {
+                        showNotification('校验码获取失败', sessionCodeResult.message, 'warning');
+                    } else {
+                        console.log('H5视频活体检测随机校验码：', sessionCodeResult.sessionCode); // 可用于后续H5活体检测调用
+                    }
+
+                    // 2. 获取表单详情
+                    const formResp = await fetch(`${API_BASE_URL}/forms/admin`);
+                    const formResult = await formResp.json();
+                    if (!formResult.success) {
+                        showNotification('表单加载失败', formResult.message, 'error');
+                        return;
+                    }
+
+                    const form = formResult.data.find(item => item.id == formId);
+                    if (!form) {
+                        showNotification('表单不存在', '当前表单已被删除或不存在', 'error');
+                        return;
+                    }
+
+                    // 填充表单信息
+                    document.getElementById('admin-detail-title').textContent = form.title;
+                    document.getElementById('admin-detail-time').textContent = formatDate(form.create_time);
+                    document.getElementById('admin-detail-content').textContent = form.content;
+                    
+                    // 状态显示
+                    let statusHtml = '';
+                    if (form.status === '已回复') {
+                        statusHtml = '<span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">已回复</span>';
+                        // 已回复时禁用回复框
+                        document.getElementById('admin-reply-content-input').value = form.reply_content || '';
+                        document.getElementById('admin-reply-content-input').disabled = true;
+                        document.getElementById('regenerate-reply-btn').disabled = true;
+                        document.querySelector('#admin-reply-form button[type="submit"]').disabled = true;
+                        document.querySelector('#admin-reply-form button[type="submit"]').classList.add('opacity-50', 'cursor-not-allowed');
+                    } else {
+                        statusHtml = '<span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">未回复</span>';
+                        // 未回复时生成智能回复（调用文心一言Agent）
+                        await generateSmartReply(form.content);
+                        document.getElementById('admin-reply-content-input').disabled = false;
+                        document.getElementById('regenerate-reply-btn').disabled = false;
+                        document.querySelector('#admin-reply-form button[type="submit"]').disabled = false;
+                        document.querySelector('#admin-reply-form button[type="submit"]').classList.remove('opacity-50', 'cursor-not-allowed');
+                    }
+                    document.getElementById('admin-detail-status').outerHTML = statusHtml;
+                    
+                    // 侧边栏信息
+                    document.getElementById('admin-form-id').textContent = `#${form.form_no}`;
+                    document.getElementById('admin-form-category').textContent = getCategoryText(form.category);
+                    document.getElementById('admin-form-ip').textContent = form.ip_address || '未知IP';
+                    document.getElementById('admin-form-browser').textContent = form.browser_info || '未知浏览器';
+                } catch (error) {
+                    showNotification('详情加载异常', error.message, 'error');
+                }
+            }
+
+            /**
+             * 生成智能回复（调用百度通义千问Agent接口）
+             */
+            async function generateSmartReply(formContent) {
+    const replyInput = document.getElementById('admin-reply-content-input');
+    replyInput.value = '正在生成智能回复...';
+
+    try {
+        // 添加时间戳参数防止潜在缓存
+        const response = await fetch(`${API_BASE_URL}/reply/generate?_t=${Date.now()}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ formContent })
+        });
+
+        const result = await response.json();
+        if (result.success) {
+            replyInput.value = result.reply;
+        } else {
+            replyInput.value = '智能回复生成失败，可手动输入回复...';
+            showNotification('生成失败', result.message, 'warning');
+        }
+    } catch (error) {
+        replyInput.value = '智能回复生成失败，可手动输入回复...';
+        showNotification('生成异常', error.message, 'error');
+    }
+}
+
+            /**
+             * 提交表单（普通用户，含H5视频活体检测选项，调用文档中“H5视频活体检测”接口）
+             */
+            document.getElementById('submission-form').addEventListener('submit', async function(e) {
+                e.preventDefault();
+                const title = document.getElementById('form-title').value.trim();
+                const content = document.getElementById('form-content').value.trim();
+                const category = document.getElementById('form-category').value;
+
+                if (!title || !content) {
+                    showNotification('提交失败', '标题和内容为必填项', 'error');
+                    return;
+                }
+
+                // 可选：启用H5视频活体检测（文档中“H5视频活体检测”接口）
+                const useLiveness = confirm('是否启用H5视频活体检测（增强提交安全性）？');
+                if (useLiveness) {
+                    try {
+                        // 1. 先获取随机校验码
+                        const sessionCodeResp = await fetch(`${API_BASE_URL}/face/session-code`);
+                        const sessionCodeResult = await sessionCodeResp.json();
+                        if (!sessionCodeResult.success) {
+                            showNotification('校验码获取失败', sessionCodeResult.message, 'error');
+                            return;
+                        }
+
+                        // 2. 模拟H5视频活体检测（实际项目需集成前端H5视频流，此处仅调用接口验证）
+                        const videoElem = document.createElement('video');
+                        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                        videoElem.srcObject = stream;
+                        await videoElem.play();
+
+                        // 3. 捕获视频帧转换为Base64（用于H5活体检测接口）
+                        const canvas = document.createElement('canvas');
+                        const ctx = canvas.getContext('2d');
+                        canvas.width = videoElem.videoWidth;
+                        canvas.height = videoElem.videoHeight;
+                        ctx.drawImage(videoElem, 0, 0);
+                        const videoFrameBase64 = canvas.toDataURL('image/jpeg').split(',')[1];
+
+                        // 4. 调用H5视频活体检测接口（文档中“H5视频活体检测”接口）
+                        const livenessResp = await fetch(`${API_BASE_URL}/face/h5-liveness`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                sessionCode: sessionCodeResult.sessionCode,
+                                videoFrameBase64: videoFrameBase64 // 实际需传视频流，此处用单帧模拟
+                            })
+                        });
+
+                        const livenessResult = await livenessResp.json();
+                        stream.getTracks().forEach(track => track.stop());
+
+                        if (!livenessResult.success) {
+                            showNotification('活体检测失败', livenessResult.message, 'error');
+                            return;
+                        }
+                    } catch (error) {
+                        showNotification('活体检测异常', error.message, 'error');
+                        return;
+                    }
+                }
+
+                // 提交表单数据
+                try {
+                    const response = await fetch(`${API_BASE_URL}/form/submit`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            title,
+                            content,
+                            category,
+                            userId: currentUserId,
+                            ipAddress: returnCitySN?.cip || '未知IP', // 需引入ip获取插件（如returnCitySN）
+                            browserInfo: navigator.userAgent
+                        })
+                    });
+
+                    const result = await response.json();
+                    if (result.success) {
+                        showNotification('提交成功', `表单编号：${result.formNo}，管理员将尽快处理`, 'success');
+                        setTimeout(() => {
+                            showPage('user-operation-select');
+                            document.getElementById('submission-form').reset();
+                        }, 1500);
+                    } else {
+                        showNotification('提交失败', result.message, 'error');
+                    }
+                } catch (error) {
+                    showNotification('提交异常', error.message, 'error');
+                }
+            });
+
+            /**
+             * 管理员发送回复（调用后端接口）
+             */
+            document.getElementById('admin-reply-form').addEventListener('submit', async function(e) {
+                e.preventDefault();
+                const replyContent = document.getElementById('admin-reply-content-input').value.trim();
+
+                if (!replyContent) {
+                    showNotification('回复失败', '回复内容不能为空', 'error');
+                    return;
+                }
+
+                try {
+                    const response = await fetch(`${API_BASE_URL}/reply/submit`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            formId: currentFormId,
+                            adminId: currentUserId,
+                            content: replyContent
+                        })
+                    });
+
+                    const result = await response.json();
+                    if (result.success) {
+                        showNotification('回复成功', '已成功回复用户', 'success');
+                        setTimeout(() => {
+                            showPage('admin-form-list');
+                        }, 1500);
+                    } else {
+                        showNotification('回复失败', result.message, 'error');
+                    }
+                } catch (error) {
+                    showNotification('回复异常', error.message, 'error');
+                }
+            });
+
+            /**
+             * 删除表单（管理员，调用后端接口）
+             */
+            async function deleteAdminForm(formId) {
+                try {
+                    const response = await fetch(`${API_BASE_URL}/form/${formId}`, {
+                        method: 'DELETE'
+                    });
+
+                    const result = await response.json();
+                    if (result.success) {
+                        showNotification('删除成功', '表单已永久删除', 'info');
+                        loadAdminFormList(); // 重新加载表单列表
+                    } else {
+                        showNotification('删除失败', result.message, 'error');
+                    }
+                } catch (error) {
+                    showNotification('删除异常', error.message, 'error');
+                }
+            }
+
+            /**
+             * 重新生成智能回复（绑定按钮事件）
+             */
+            document.getElementById('regenerate-reply-btn').addEventListener('click', async function() {
+                const formContent = document.getElementById('admin-detail-content').textContent;
+                await generateSmartReply(formContent);
+            });
+
+            /**
+             * 取消回复（清空输入框）
+             */
+            document.getElementById('cancel-admin-reply').addEventListener('click', function() {
+                document.getElementById('admin-reply-content-input').value = '';
+            });
+
+            /**
+             * 下载表单（生成TXT文件）
+             */
+            document.getElementById('download-this-form').addEventListener('click', function() {
+                const formTitle = document.getElementById('admin-detail-title').textContent;
+                const formContent = document.getElementById('admin-detail-content').textContent;
+                const formTime = document.getElementById('admin-detail-time').textContent;
+                const formCategory = document.getElementById('admin-form-category').textContent;
+
+                // 构建下载内容
+                const content = `表单标题：${formTitle}\n提交时间：${formTime}\n分类：${formCategory}\n\n表单内容：\n${formContent}`;
+                const blob = new Blob([content], { type: 'text/plain' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `表单_${formTitle.replace(/[^\w]/g, '_')}.txt`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                showNotification('下载成功', '表单已开始下载', 'success');
+            });
+
+            /**
+             * 管理员退出登录
+             */
+            document.getElementById('admin-logout-btn').addEventListener('click', function()            
+            {
+                showConfirmDialog('退出登录', '确定要退出管理员账号吗？', function() {
+                    currentUserId = null; // 清空当前用户ID
+                    currentFormId = null; // 清空当前表单ID
+                    showPage('system-entry');
+                    showNotification('退出成功', '已安全退出管理员账号', 'info');
+                });
+            });
+
+            /**
+             * 表单搜索功能（管理员）
+             */
+            document.getElementById('admin-form-search').addEventListener('input', async function(e) {
+                const searchTerm = e.target.value.toLowerCase().trim();
+                const tableBody = document.getElementById('admin-forms-table-body');
+
+                // 先加载所有表单
+                const response = await fetch(`${API_BASE_URL}/forms/admin`);
+                const result = await response.json();
+                if (!result.success) {
+                    tableBody.innerHTML = `<tr><td colspan="4" class="text-center py-8 text-gray-500">搜索失败：${result.message}</td></tr>`;
+                    return;
+                }
+
+                const filteredForms = searchTerm 
+                    ? result.data.filter(form => form.title.toLowerCase().includes(searchTerm))
+                    : result.data;
+
+                if (filteredForms.length === 0) {
+                    tableBody.innerHTML = '<tr><td colspan="4" class="text-center py-8 text-gray-500">未找到匹配表单</td></tr>';
+                    return;
+                }
+
+                // 重新渲染过滤后的表单
+                let html = '';
+                filteredForms.forEach(form => {
+                    let statusHtml = '';
+                    if(form.status === '已回复') {
+                        statusHtml = '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">已回复</span>';
+                    } else if (form.status === '处理中') {
+                        statusHtml = '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">处理中</span>';
+                    } else {
+                        statusHtml = '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">未回复</span>';
+                    }
+
+                    html += `
+                        <tr class="hover:bg-gray-50 transition-colors cursor-pointer admin-form-row" data-id="${form.id}">
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="text-sm font-medium text-gray-900">${form.title}</div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="text-sm text-gray-500">${formatDate(form.create_time)}</div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                ${statusHtml}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                <button class="text-primary hover:text-primary/80 mr-3 admin-view-form" data-id="${form.id}">查看</button>
+                                <button class="text-danger hover:text-danger/80 admin-delete-form" data-id="${form.id}">删除</button>
+                            </td>
+                        </tr>
+                    `;
+                });
+
+                tableBody.innerHTML = html;
+
+                // 重新绑定事件
+                document.querySelectorAll('.admin-view-form').forEach(btn => {
+                    btn.addEventListener('click', function(e) {
+                        e.stopPropagation();
+                        currentFormId = this.getAttribute('data-id');
+                        loadAdminFormDetail(currentFormId);
+                        showPage('admin-form-detail');
+                    });
+                });
+
+                document.querySelectorAll('.admin-delete-form').forEach(btn => {
+                    btn.addEventListener('click', function(e) {
+                        e.stopPropagation();
+                        const formId = this.getAttribute('data-id');
+                        showConfirmDialog('删除表单', '确定要删除此表单吗？此操作不可撤销。', function() {
+                            deleteAdminForm(formId);
+                        });
+                    });
+                });
+
+                document.querySelectorAll('.admin-form-row').forEach(row => {
+                    row.addEventListener('click', function() {
+                        currentFormId = this.getAttribute('data-id');
+                        loadAdminFormDetail(currentFormId);
+                        showPage('admin-form-detail');
+                    });
+                });
+            });
+
+            /**
+             * 工具函数：格式化日期
+             */
+            function formatDate(dateStr) {
+                if (!dateStr) return '未知时间';
+                const date = new Date(dateStr);
+                const year = date.getFullYear();
+                const month = String(date.getMonth() + 1).padStart(2, '0');
+                const day = String(date.getDate()).padStart(2, '0');
+                const hour = String(date.getHours()).padStart(2, '0');
+                const minute = String(date.getMinutes()).padStart(2, '0');
+                return `${year}-${month}-${day} ${hour}:${minute}`;
+            }
+
+            /**
+             * 工具函数：获取分类中文文本
+             */
+            function getCategoryText(category) {
+                const categoryMap = {
+                    'technical': '技术问题',
+                    'service': '服务咨询',
+                    'complaint': '投诉建议',
+                    'other': '其他问题',
+                    '': '未分类'
+                };
+                return categoryMap[category] || '未分类';
+            }
+
+            /**
+             * 页面跳转事件绑定（保留原逻辑，确保界面切换正常）
+             */
+            // 系统入口 -> 用户人脸识别
+            document.getElementById('go-to-user-face').addEventListener('click', function() {
+                showPage('user-face-verification');
+            });
+
+            // 系统入口 -> 管理员人脸识别
+            document.getElementById('go-to-admin-face').addEventListener('click', function() {
+                showPage('admin-face-login');
+            });
+
+            // 用户人脸识别 -> 首页
+            document.getElementById('back-user-to-entry').addEventListener('click', function() {
+                showPage('system-entry');
+            });
+
+            // 管理员人脸识别 -> 首页
+            document.getElementById('back-admin-to-entry').addEventListener('click', function() {
+                showPage('system-entry');
+            });
+
+            // 用户操作选择 -> 表单填写
+            document.getElementById('go-to-form-filling').addEventListener('click', function() {
+                showPage('form-filling');
+            });
+
+            // 用户操作选择 -> 回复列表
+            document.getElementById('go-to-reply-list').addEventListener('click', function() {
+                showPage('reply-list');
+            });
+
+            // 表单填写 -> 操作选择（已修改为返回用户选择界面）
+            document.getElementById('back-to-operation').addEventListener('click', function() {
+                showPage('user-operation-select');
+            });
+
+            // 取消表单填写
+            document.getElementById('cancel-form').addEventListener('click', function() {
+                showConfirmDialog('放弃填写', '确定要放弃表单填写吗？已输入内容将丢失。', function() {
+                    showPage('user-operation-select');
+                });
+            });
+
+            // 回复列表 -> 操作选择（已修改为返回用户选择界面）
+            document.getElementById('back-to-operation-from-reply').addEventListener('click', function() {
+                showPage('user-operation-select');
+            });
+
+            // 回复详情 -> 回复列表
+            document.getElementById('back-to-reply-list').addEventListener('click', function() {
+                showPage('reply-list');
+            });
+            document.getElementById('back-from-reply-detail').addEventListener('click', function() {
+                showPage('reply-list');
+            });
+
+            // 管理员表单详情 -> 表单列表
+            document.getElementById('back-to-admin-form-list').addEventListener('click', function() {
+                showPage('admin-form-list');
+            });
+
+            // 用户选择界面 -> 系统首页（新增返回按钮事件）
+            document.getElementById('back-to-system-entry').addEventListener('click', function() {
+                showPage('system-entry');
+            });
+
+            // 初始化显示首页
+            showPage('system-entry');
+        });
+    </script>
+</body>
+</html>
